@@ -1,0 +1,16 @@
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.8.0
+  hooks:
+    - id: ruff
+      types_or: [ python, pyi ]
+    - id: ruff-format
+      types_or: [ python, pyi ]
+
+# - repo: https://github.com/astral-sh/uv-pre-commit
+#   # uv version.
+#   rev: 0.5.5
+#   hooks:
+#     # Compile requirements
+#     - id: pip-compile
+#       args: [pyproject.toml, -o, requirements.txt]

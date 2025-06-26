@@ -1,0 +1,28 @@
+[project]
+name = "demokratiehaushalt"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastexcel>=0.14.0",
+    "jupyter>=1.1.1",
+    "markdown>=3.8.2",
+    "markdownify>=1.1.0",
+    "modal>=1.0.4",
+    "openpyxl>=3.1.5",
+    "polars>=1.31.0",
+    "requests>=2.32.4",
+    "seaborn>=0.13.2",
+    "lib",
+    "click>=8.1.8",
+    "bs4>=0.0.2",
+    "pre-commit>=4.2.0",
+]
+
+
+[tool.uv.sources]
+lib = {workspace = true}
+
+[tool.uv.workspace]
+members = ["lib"]

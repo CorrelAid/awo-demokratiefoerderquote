@@ -1,0 +1,18 @@
+<View>
+   <Text name="title" value="$title"/>
+  <Header>-----------------</Header>
+  <Text name="text" value="$text"/>
+  <Header>-----------------</Header>
+  <Text name="url_display" value="$url"/>
+    <Header>-----------------</Header>
+  <View style="box-shadow: 2px 2px 5px #999;
+               padding: 20px; margin-top: 2em;
+               border-radius: 5px;">
+    <Header value="Demokratieförderung?"/>
+    <Choices name="classification" toName="text"
+             choice="single" showInLine="true">
+      <Choice value="Ja" alias="dfy" />
+      <Choice value="Nein" alias="dfn" />
+    </Choices>
+  </View>
+</View>
