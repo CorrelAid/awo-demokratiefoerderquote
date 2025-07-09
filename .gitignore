@@ -16,3 +16,8 @@ wheels/
 
 .ipynb_checkpoints
 
+.aim/*
+
+.ruff_cache/*
+
+*.pkl

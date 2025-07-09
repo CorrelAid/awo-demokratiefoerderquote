@@ -55,8 +55,10 @@ def process(input_path, output_folder):
 
         Förderberechtigte: {}""",
             pl.col("description_md"),
-            pl.col("funding_area").list.join(", "),
-            pl.col("eligible_applicants").list.join(", "),
+            pl.col("funding_area").fill_null([]).list.join(", ", ignore_nulls=False),
+            pl.col("eligible_applicants")
+            .fill_null([])
+            .list.join(", ", ignore_nulls=False),
         ).alias("description_cats_md")
     )
 
@@ -84,12 +86,12 @@ def process(input_path, output_folder):
 
     df = df.with_columns(
         pl.format(
-            """
-{} (Förderbereich: {}; Förderberechtigte: {}): {}
-        """,
+            """{} (Förderbereich: {}; Förderberechtigte: {}): {}""",
             pl.col("title"),
-            pl.col("funding_area").list.join(", "),
-            pl.col("eligible_applicants").list.join(", "),
+            pl.col("funding_area").fill_null([]).list.join(", ", ignore_nulls=False),
+            pl.col("eligible_applicants")
+            .fill_null([])
+            .list.join(", ", ignore_nulls=False),
             pl.struct(["title", "description_text_only"]).map_elements(
                 remove_title_from_description, return_dtype=pl.String
             ),
@@ -102,13 +104,35 @@ def process(input_path, output_folder):
 {} (Förderbereich: {}; Förderberechtigte: {}): {}
         """,
             pl.col("title"),
-            pl.col("funding_area").list.join(", "),
-            pl.col("eligible_applicants").list.join(", "),
+            pl.col("funding_area").fill_null([]).list.join(", ", ignore_nulls=False),
+            pl.col("eligible_applicants")
+            .fill_null([])
+            .list.join(", ", ignore_nulls=False),
             pl.struct(["title", "description_text_only"]).map_elements(
                 remove_title_stopwords_from_description, return_dtype=pl.String
             ),
         ).alias("description_title_cats_compact_wo_section_stopwords")
     )
+
+    # Final check for None/empty values in processed text columns
+    text_columns = [
+        "description_raw",
+        "description_md",
+        "description_html",
+        "description_cats_md",
+        "description_text_only",
+        "description_title_cats_compact",
+        "description_title_cats_compact_wo_section_stopwords",
+    ]
+
+    for col in text_columns:
+        if col in df.columns:
+            null_count = df.select(pl.col(col).is_null().sum()).item()
+            empty_count = df.select((pl.col(col) == "").sum()).item()
+            if null_count > 0 or empty_count > 0:
+                print(
+                    f"Final check - Column '{col}' has {null_count} null values and {empty_count} empty values"
+                )
 
     df = df.with_columns(
         [

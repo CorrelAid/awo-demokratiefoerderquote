@@ -1,0 +1,31 @@
+<View>
+  <Header name="title" value="$title"/>
+  <Text name="url" value="$url" />
+
+  <Header name="sep_1" value="-------"/>
+  <HyperText name="description" value="$description_html"/>
+ <Header name="sep_2" value="-------"/>
+  <!-- Show quality metrics (display only) -->
+<View style="background-color: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px;">
+  <Header name="quality_header" value="Quality Metrics"/>
+
+  <Text name="label_info" value="**Label Status:** Mismatch: $label_mismatch | Prediction: $predicted_label | Manual Label: $label"/>
+
+  <Text name="quality_info" value="**Quality Assessment:** Label Issue: $is_label_issue | Label Quality: $label_quality"/>
+
+  <Text name="data_info" value="**Data Assessment:** Is Detrimental: $is_detrimental | Valuation Score: $data_valuation_score"/>
+</View>
+
+
+  <!-- Correction interface - only for final label -->
+  <View style="box-shadow: 2px 2px 5px #999; padding: 20px; margin-top: 2em; border-radius: 5px;">
+    <Header name="header_correction" value="Correct Final Label"/>
+    <Text name="instruction" value="Is this about democracy promotion/funding (Demokratieförderung)?"/>
+
+    <Choices name="corrected_label" toName="description"
+             choice="single" showInLine="true">
+      <Choice value="1" alias="yes" hint="Yes - Democracy promotion related"/>
+      <Choice value="0" alias="no" hint="No - Not democracy promotion related"/>
+    </Choices>
+  </View>
+</View>

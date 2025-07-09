@@ -18,6 +18,13 @@ dependencies = [
     "click>=8.1.8",
     "bs4>=0.0.2",
     "pre-commit>=4.2.0",
+    "aim>=3.29.1",
+    "scikit-learn>=1.7.0",
+    "nltk>=3.9.1",
+    "cleanlab[datalab]>=2.7.1",
+    "pandas>=2.3.0",
+    "torch[cpu]>=2.7.1",
+    "optuna>=4.4.0",
 ]
 
 
