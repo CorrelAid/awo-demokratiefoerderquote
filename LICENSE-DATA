@@ -1,0 +1,5 @@
+# License - Data
+
+scope: applies to `data` folder and its subfolders.
+
+We refer to the [imprint of foerderdatenbank.de](https://www.foerderdatenbank.de/FDB/DE/Meta/Impressum/impressum.html) of the German Federal Ministry for Economic Affairs and Energy which indicates [CC BY-ND 3.0 DE](https://creativecommons.org/licenses/by-nd/3.0/de/deed.de) as the license for all texts of the website. The dataset provided in this repository transfers information on each funding program into a machine-readable format. No copyright-relevant changes are made to texts or content.
