@@ -1,3 +1,11 @@
+# Demokratieförderquote
+
+_This is the output of a data project within the context of the [Civic Data Lab](https://civic-data.de). The Civic Data Lab team supported the AWO team with technical implementation of algorithms._
+
+Links:
+- [repository for crawling Förderdatenbank](https://github.com/CorrelAid/cdl_funding_crawler)
+- [Förderdatenbank - Bund, Länder und EU](https://foerderdatenbank.de)
+
 ## Setup
 
 ### Requirements
@@ -30,3 +38,5 @@ We refer to the [imprint of foerderdatenbank.de](https://www.foerderdatenbank.de
 
 
 see `LICENSE-DATA`
+
+
