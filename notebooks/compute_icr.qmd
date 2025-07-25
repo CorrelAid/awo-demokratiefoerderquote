@@ -1,0 +1,135 @@
+---
+title: "Compute Interrater/Intercoder Reliability"
+format: pdf
+---
+
+```{python}
+#| echo: false
+import polars as pl
+from statsmodels.stats.inter_rater import fleiss_kappa, aggregate_raters, to_table
+from sklearn.metrics import cohen_kappa_score, accuracy_score
+from lib.wrangling_helpers import get_annotation, get_hash_id
+
+
+coder_1 = pl.read_json("../data/labeled/25_07/07_25_awo_coder_1.json")
+coder_1 = get_annotation(coder_1, output_col_name="label", pos_str="dfy", neg_str="dfn")
+coder_1 = get_hash_id(coder_1, "id_hash")["label", "id_hash"]
+
+coder_2 = pl.read_json("../data/labeled/25_07/07_25_awo_coder_2.json")
+coder_2 = get_annotation(coder_2, output_col_name="label", pos_str="dfy", neg_str="dfn")
+coder_2 = get_hash_id(coder_2, "id_hash")["label", "id_hash"]
+coder_1 = coder_1.sort("id_hash")
+coder_2 = coder_2.sort("id_hash")
+
+coder_3 = pl.read_csv("../data/labeled/25_07/corrected_previous_round.csv")
+coder_3 = coder_3.sort("id_hash")
+
+all_coders = pl.DataFrame(
+    {
+        "coder_1": coder_1["label"],
+        "coder_2": coder_2["label"],
+        "coder_3": coder_3["label"],
+    }
+)
+
+coder_1_dicts = [{"Rater": 1, "Object": x["id_hash"], "Score": x["label"]} for x in coder_1.to_dicts()]
+coder_2_dicts = [{"Rater": 2, "Object": x["id_hash"],  "Score": x["label"]} for x in coder_2.to_dicts()]
+coder_3_dicts = [{"Rater": 3, "Object": x["id_hash"],  "Score": x["label"]} for x in coder_3.to_dicts()]
+
+long_awo_coders = pl.DataFrame(coder_1_dicts + coder_2_dicts)
+long_all = pl.DataFrame(coder_1_dicts + coder_2_dicts + coder_3_dicts)
+
+long_awo_coders.write_csv("data/awo_coders_long.csv")
+long_all.write_csv("data/all_coders_long.csv")
+```
+
+## Between two individual Coders 
+
+### Cohen's Kappa
+
+- Represents the amount of agreement that can be expected from random chance, and 1 represents perfect agreement between the raters.
+- \>0.6 = **moderate agreement**
+
+```{python}
+kapp = cohen_kappa_score(coder_1["label"], coder_2["label"])
+print(f"kappa: {kapp:.2f}")
+
+```
+
+### Percent Agreement
+
+```{python}
+print(f"percent agreement: {accuracy_score(coder_1['label'], coder_2['label'])*100:.2f}")
+```
+
+### Category Specific Agreement
+
+From the agreement package: "Specific agreement is an index of the reliability of categorical
+measurements. It describes the amount of agreement observed with regard to
+each possible category. With two raters, the interpretation of specific
+agreement for any category is the probability of one rater assigning an item
+to that category given that the other rater has also assigned that item to
+that category. With more than two raters, the interpretation becomes the
+probability of a randomly chosen rater assigning an item to that category
+given that another randomly chosen rater has also assigned that item to that
+category. When applied to binary (i.e., dichotomous) data, specific agreement
+on the positive category is often referred to as positive agreement (PA) and
+specific agreement on the negative category is often referred to as negative
+agreement (NA). In this case, PA is equal to the F1 score frequently used in
+computer science.""
+
+```{r}
+library(agreement)
+data = read.csv("data/awo_coders_long.csv")
+results <- cat_specific(data)
+summary(results, ci = TRUE, type = "perc")
+```
+## Between two individual coders and a labeling version that multiple coders worked on in intervals
+
+### Fleiss's Kappa
+- See [Wikipedia](https://en.wikipedia.org/wiki/Fleiss%27_kappa)
+- The measure calculates the degree of agreement in classification over that which would be expected by chance. 
+-  \>0.6 = **Moderate Agreement**
+
+```{python}
+arr, cats = aggregate_raters(all_coders)
+kapp = fleiss_kappa(arr)
+print(f"kappa: {kapp:.2f}")
+```
+
+### Percent Agreement
+```{python}
+#| echo: false
+acc_df = all_coders.with_columns(
+    [
+        (
+            (
+                (pl.col("coder_1") == pl.col("coder_2")).cast(pl.Float64)
+                + (pl.col("coder_1") == pl.col("coder_3")).cast(pl.Float64)
+                + (pl.col("coder_2") == pl.col("coder_3")).cast(pl.Float64)
+            )
+            / 3
+            * 100
+        )
+        .round(2)
+        .alias("agreement_pct")
+    ]
+)
+```
+```{python}
+percent_agreement = acc_df["agreement_pct"].mean()
+print(f"Percent agreement: {percent_agreement}")
+```
+### Category Specific Agreement
+```{r}
+library(agreement)
+data = read.csv("data/all_coders_long.csv")
+results <- cat_specific(data)
+summary(results, ci = TRUE, type = "perc")
+```
+
+## Conclusion
+
+According to [McHugh (2012)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3900052/): "Perhaps the best advice for researchers is to calculate both percent agreement and kappa. If there is likely to be much guessing among the raters, it may make sense to use the kappa statistic, but if raters are well trained and little guessing is likely to exist, the researcher may safely rely on percent agreement to determine interrater reliability." 
+
+AWO coders were trained and did not guess, so we rely on percent agreement. Therefore, interrater/intercoder reliability should is sufficient with strong agreement overall. For the specific labels, there was strong agreement for the negative label 0 and moderate agreement for the positive label.

@@ -25,6 +25,7 @@ dependencies = [
     "pandas>=2.3.0",
     "torch[cpu]>=2.7.1",
     "optuna>=4.4.0",
+    "statsmodels>=0.14.5",
 ]
 
 
