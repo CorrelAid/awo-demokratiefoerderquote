@@ -5,9 +5,17 @@ from bs4 import BeautifulSoup
 from lib import stopwords
 
 
-def get_annotation(df, output_col_name, pos_str="yes", neg_str="no"):
+def get_annotation(df, output_col_name):
     df = df.explode("annotations")
-
+    if (
+        df["annotations"][0]["result"][0]["value"]["choices"][0] == "yes"
+        or df["annotations"][0]["result"][0]["value"]["choices"][0] == "no"
+    ):
+        pos_str = "yes"
+        neg_str = "no"
+    else:
+        pos_str = "dfy"
+        neg_str = "dfn"
     df = df.with_columns(
         pl.col("annotations")
         .struct.field("result")
@@ -17,9 +25,14 @@ def get_annotation(df, output_col_name, pos_str="yes", neg_str="no"):
         .list.first()
         .str.replace(pos_str, "1")
         .str.replace(neg_str, "0")
-        .cast(pl.Int8)
+        .cast(pl.Int64)
         .alias(output_col_name)
     )
+    return df
+
+
+def get_title(df, output_col_name):
+    df = df.with_columns(pl.col("data").struct.field("title").alias(output_col_name))
     return df
 
 
@@ -53,14 +66,16 @@ def create_classify_cols(df, input_desc_col_name):
     for col in proc_cols:
         dtype = df.schema[col]
         if dtype == pl.Utf8:
+            df = df.with_columns(pl.col(col).fill_null(""))
             df = df.rename({col: f"{col}_proc"})
         else:
-            df = (
-                df.with_columns(pl.col(col))
+            df = df.with_columns(
+                pl.col(col)
                 .fill_null([])
                 .list.join(", ", ignore_nulls=False)
-                .alias(f"{col}_proc")
+                .alias(f"{col}")
             )
+            df = df.rename({col: f"{col}_proc"})
 
     df = df.with_columns(
         pl.format(
@@ -143,10 +158,21 @@ def create_classify_cols(df, input_desc_col_name):
             empty_count = df.select((pl.col(col) == "").sum()).item()
             if null_count > 0 or empty_count > 0:
                 print(
-                    f"Final check - Column '{col}' has {null_count} null values and {empty_count} empty values"
+                    f"Final check - Column '{col}' has {null_count} null values and {empty_count} empty values\n"
                 )
+                # get ids of rows with null or empty values
+                print(
+                    df.filter(pl.col(col).is_null() | (pl.col(col) == ""))[
+                        ["funding_area_proc"]
+                    ]
+                )
+                print("\n")
 
     for col in proc_cols:
         df = df.rename({f"{col}_proc": col})
+        # print sample
+        # print(df.select(pl.col(col).sample(5)))
+        df = df.with_columns(pl.col(col).str.split(","))
+        # print(df.select(pl.col(col).sample(5)))
 
     return df

@@ -1,0 +1,2 @@
+f1,accuracy,precision,recall,f1_std,accuracy_std,precision_std,recall_std,trial_number,total_trials,experiment,label_col,text_col,date
+0.8175530914837167,0.8344086021505376,0.680358050011176,0.8518518518518517,0.06259327414122434,0.04861356798046157,0.0942436195066972,0.07219847662821455,5,50,tfidf_mlp_optuna,label_original,description_title_cats_compact,02_28_07_2025

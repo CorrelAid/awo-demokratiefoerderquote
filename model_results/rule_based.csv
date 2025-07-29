@@ -1,0 +1,4 @@
+accuracy,precision,recall,f1,experiment,label_col,text_col,date
+0.7475728155339806,0.5379310344827586,0.8764044943820225,0.6666666666666666,rule_based,label_original,description_text_only,01_28_07_2025
+0.7119741100323624,0.5,0.9213483146067416,0.6482213438735178,rule_based,label_original,description_title_cats_compact,01_28_07_2025
+0.7119741100323624,0.5,0.9213483146067416,0.6482213438735178,rule_based,label_original,description_title_cats_compact_wo_section_stopwords,01_28_07_2025

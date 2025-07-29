@@ -1,6 +1,8 @@
 import polars as pl
 from matplotlib import pyplot as plt
 import seaborn as sns
+from rich.table import Table
+from rich.console import Console
 
 
 def count_plot(df: pl.DataFrame, col: str, missing_label: str = "Missing"):
@@ -28,3 +30,24 @@ def count_plot(df: pl.DataFrame, col: str, missing_label: str = "Missing"):
     ax.set_ylabel(col)
     plt.tight_layout()
     plt.show()
+
+
+def display_top_results(df, model, console, k=5, sort_by="f1"):
+    table = Table(title=f"{model} Top 5 Results by F1 Score", show_lines=True)
+
+    columns_to_show = ["accuracy", "precision", "recall", "f1", "label_col", "text_col"]
+
+    for col in columns_to_show:
+        table.add_column(
+            col, justify="right" if col not in ["label_col", "text_col"] else "left"
+        )
+
+    for row in df.sort(sort_by, descending=True).head(k).iter_rows(named=True):
+        table.add_row(
+            *(
+                f"{row[col]:.4f}" if isinstance(row[col], float) else str(row[col])
+                for col in columns_to_show
+            )
+        )
+
+    console.print(table)

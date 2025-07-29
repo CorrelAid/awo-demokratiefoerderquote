@@ -1,5 +1,5 @@
 ---
-title: "Compute Interrater/Intercoder Reliability"
+title: "Manual Label Evaluation: Comparing Labeling Rounds (Interrater/Intercoder Reliability)" 
 format: pdf
 ---
 
@@ -7,29 +7,37 @@ format: pdf
 #| echo: false
 import polars as pl
 from statsmodels.stats.inter_rater import fleiss_kappa, aggregate_raters, to_table
-from sklearn.metrics import cohen_kappa_score, accuracy_score
-from lib.wrangling_helpers import get_annotation, get_hash_id
-
+from sklearn.metrics import cohen_kappa_score, accuracy_score, f1_score, precision_score, recall_score
+from lib.wrangling_helpers import get_annotation, get_hash_id, get_title
+import polars as pl
+import pandas as pd
+from IPython.display import display
+from tabulate  import tabulate
 
 coder_1 = pl.read_json("../data/labeled/25_07/07_25_awo_coder_1.json")
-coder_1 = get_annotation(coder_1, output_col_name="label", pos_str="dfy", neg_str="dfn")
-coder_1 = get_hash_id(coder_1, "id_hash")["label", "id_hash"]
+coder_1 = get_annotation(coder_1, output_col_name="label")
+coder_1 = get_title(coder_1, output_col_name="title")
+coder_1 = get_hash_id(coder_1, "id_hash")["label", "id_hash","title"]
+coder_1 = coder_1.sort("id_hash")
 
 coder_2 = pl.read_json("../data/labeled/25_07/07_25_awo_coder_2.json")
-coder_2 = get_annotation(coder_2, output_col_name="label", pos_str="dfy", neg_str="dfn")
+coder_2 = get_annotation(coder_2, output_col_name="label")
 coder_2 = get_hash_id(coder_2, "id_hash")["label", "id_hash"]
-coder_1 = coder_1.sort("id_hash")
 coder_2 = coder_2.sort("id_hash")
 
 coder_3 = pl.read_csv("../data/labeled/25_07/corrected_previous_round.csv")
 coder_3 = coder_3.sort("id_hash")
 
-all_coders = pl.DataFrame(
-    {
-        "coder_1": coder_1["label"],
-        "coder_2": coder_2["label"],
-        "coder_3": coder_3["label"],
-    }
+all_coders = (
+    coder_1.join(coder_2, on="id_hash", how="inner", suffix="_2")
+           .join(coder_3, on="id_hash", how="inner", suffix="_3")
+           .select([
+               pl.col("label").alias("coder_1"),
+               pl.col("label_2").alias("coder_2"),
+               pl.col("label_3").alias("coder_3"),
+               pl.col("id_hash"),
+               pl.col("title")
+           ])
 )
 
 coder_1_dicts = [{"Rater": 1, "Object": x["id_hash"], "Score": x["label"]} for x in coder_1.to_dicts()]
@@ -41,28 +49,34 @@ long_all = pl.DataFrame(coder_1_dicts + coder_2_dicts + coder_3_dicts)
 
 long_awo_coders.write_csv("data/awo_coders_long.csv")
 long_all.write_csv("data/all_coders_long.csv")
+
 ```
 
-## Between two individual Coders 
+# Between two individual Coders 
 
-### Cohen's Kappa
 
-- Represents the amount of agreement that can be expected from random chance, and 1 represents perfect agreement between the raters.
-- \>0.6 = **moderate agreement**
 
 ```{python}
+#| echo: false
 kapp = cohen_kappa_score(coder_1["label"], coder_2["label"])
-print(f"kappa: {kapp:.2f}")
 
+equal_labels_count = (all_coders["coder_1"] == all_coders["coder_2"]).sum()
+
+percent_agreement = (equal_labels_count / len(all_coders)) * 100
+
+two_coder_results = tabulate([
+    ["Cohen's Kappa", kapp],
+    ["Percent Agreement", percent_agreement],
+    ["Equal Labels Count", equal_labels_count],
+    ["Total Labels", len(all_coders)],
+], tablefmt="rounded_grid")
+print(two_coder_results)
 ```
 
-### Percent Agreement
+- Cohen's Kappa: Represents the amount of agreement that can be expected from random chance, and 1 represents perfect agreement between the raters. \>0.6 = **moderate agreement**
+- Percent Agreement: The percentage of times the two coders agreed on the label.
 
-```{python}
-print(f"percent agreement: {accuracy_score(coder_1['label'], coder_2['label'])*100:.2f}")
-```
-
-### Category Specific Agreement
+#### Category Specific Agreement
 
 From the agreement package: "Specific agreement is an index of the reliability of categorical
 measurements. It describes the amount of agreement observed with regard to
@@ -79,27 +93,20 @@ agreement (NA). In this case, PA is equal to the F1 score frequently used in
 computer science.""
 
 ```{r}
+#| echo: false 
 library(agreement)
 data = read.csv("data/awo_coders_long.csv")
 results <- cat_specific(data)
 summary(results, ci = TRUE, type = "perc")
 ```
-## Between two individual coders and a labeling version that multiple coders worked on in intervals
+# Between two individual coders and a labeling version that multiple coders worked on in intervals
 
-### Fleiss's Kappa
-- See [Wikipedia](https://en.wikipedia.org/wiki/Fleiss%27_kappa)
-- The measure calculates the degree of agreement in classification over that which would be expected by chance. 
--  \>0.6 = **Moderate Agreement**
 
 ```{python}
-arr, cats = aggregate_raters(all_coders)
+#| echo: false 
+arr, cats = aggregate_raters(all_coders.drop("id_hash").drop("title"))
 kapp = fleiss_kappa(arr)
-print(f"kappa: {kapp:.2f}")
-```
 
-### Percent Agreement
-```{python}
-#| echo: false
 acc_df = all_coders.with_columns(
     [
         (
@@ -115,21 +122,82 @@ acc_df = all_coders.with_columns(
         .alias("agreement_pct")
     ]
 )
-```
-```{python}
+
 percent_agreement = acc_df["agreement_pct"].mean()
-print(f"Percent agreement: {percent_agreement}")
+
+print(tabulate([["Fleiss Kappa", kapp], ["Percent Agreement", percent_agreement]], headers=["Metric", "Value"],
+tablefmt="grid",))
 ```
-### Category Specific Agreement
+
+- [Fleiss' Kappa](https://en.wikipedia.org/wiki/Fleiss%27_kappa): calculates the degree of agreement in classification over that which would be expected by chance. \>0.6 = **Moderate Agreement**
+
+#### Category Specific Agreement
 ```{r}
+#| echo: false 
 library(agreement)
 data = read.csv("data/all_coders_long.csv")
 results <- cat_specific(data)
 summary(results, ci = TRUE, type = "perc")
 ```
 
-## Conclusion
+# Conclusion
 
 According to [McHugh (2012)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3900052/): "Perhaps the best advice for researchers is to calculate both percent agreement and kappa. If there is likely to be much guessing among the raters, it may make sense to use the kappa statistic, but if raters are well trained and little guessing is likely to exist, the researcher may safely rely on percent agreement to determine interrater reliability." 
 
-AWO coders were trained and did not guess, so we rely on percent agreement. Therefore, interrater/intercoder reliability should is sufficient with strong agreement overall. For the specific labels, there was strong agreement for the negative label 0 and moderate agreement for the positive label.
+AWO coders were trained and did not guess, so we rely on percent agreement. Therefore, interrater/intercoder reliability is sufficient with strong agreement overall. For the specific labels, there was strong agreement for the negative label 0 and moderate agreement for the positive label.
+
+# Rows where the two trained AWO coders both differed from the original labeling round
+
+```{python}
+#| echo: false 
+discrepant_coders = (
+    all_coders
+    .filter(pl.col("coder_1") == pl.col("coder_2"))
+    .filter(pl.col("coder_1") != pl.col("coder_3"))
+    .select([
+        pl.col("title").str.slice(0, 60).alias("title"),
+        pl.col("coder_3"),
+        pl.col("coder_1").alias("coder_1_2")
+    ])
+)
+
+print(f"Rows where the two independent coders both differed from the original labeling round: {len(discrepant_coders)}")
+print(tabulate(discrepant_coders.to_dicts(), headers="keys"))
+```
+
+# Original corrected label round as ground truth
+
+
+
+```{python}
+#| echo: false 
+acc_1 = accuracy_score(coder_1["label"], coder_3["label"])
+acc_2 = accuracy_score(coder_2["label"], coder_3["label"])
+average_accuracy = (acc_1 + acc_2) / 2
+
+f1_1 = f1_score(coder_1["label"], coder_3["label"], average="binary")
+f1_2 = f1_score(coder_2["label"], coder_3["label"], average="binary")
+average_f1 = (f1_1 + f1_2) / 2
+
+# recall
+recall_1 = recall_score(coder_1["label"], coder_3["label"], average="binary")
+recall_2 = recall_score(coder_2["label"], coder_3["label"], average="binary")
+average_recall = (recall_1 + recall_2) / 2
+
+# precision
+precision_1 = precision_score(coder_1["label"], coder_3["label"], average="binary")
+precision_2 = precision_score(coder_2["label"], coder_3["label"], average="binary")
+average_precision = (precision_1 + precision_2) / 2
+
+results = tabulate(
+    [
+        ["Accuracy", acc_1, acc_2, average_accuracy],
+        ["F1 Score", f1_1, f1_2, average_f1],
+        ["Recall", recall_1, recall_2, average_recall],
+        ["Precision", precision_1, precision_2, average_precision],
+    ],
+    headers=["Metric", "Coder 1", "Coder 2", "Average"],
+    tablefmt="grid",
+)
+print(results) 
+```

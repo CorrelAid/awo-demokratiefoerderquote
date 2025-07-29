@@ -1,0 +1,11 @@
+{
+  "min_df": 1,
+  "learning_rate": 0.014770798289374876,
+  "max_features": 10000,
+  "hidden_size_1": 112,
+  "n_layers": 1,
+  "dropout": 0.3278963019552181,
+  "epochs": 60,
+  "threshold": 0.5533258348134096,
+  "use_focal_loss": false
+}
