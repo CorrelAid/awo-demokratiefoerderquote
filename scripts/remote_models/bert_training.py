@@ -97,13 +97,13 @@ def train_model(folds, label_col, text_col):
     lr = 2.5e-5
     bs = 8
     wd = 0.01
-    wm = 0.2
-    ep = 2
+    wm = 0.1
+    ep = 10
     wr = 5.0
-    gm = 2.0
+    gm = 4.0
     threshold = 0.6
-    hidden_dropout_prob = 0.3
-    attention_probs_dropout_prob = 0.2
+    hidden_dropout_prob = 0.1
+    attention_probs_dropout_prob = 0.1
 
     login(token=os.environ["HF_TOKEN"], new_session=True, add_to_git_credential=False)
     model_name = f"correlaid/{cpt_bert}"
@@ -225,3 +225,6 @@ def main(smoke_run=False):
     results = train_model.remote(folds, text_col=text_col, label_col=label_col)
     with open("model_results/bert_stats.json", "w") as f:
         json.dump(results, f)
+
+
+# {'f1': 0.7597086866636836, 'accuracy': 0.813978494623656, 'precision': 0.7075450933726941, 'recall': 0.8629629629629629, 'f1_std': 0.1200763152427021, 'accuracy_std': 0.18686523527248447, 'precision_std': 0.16340827253044046, 'recall_std': 0.09246905338801976}

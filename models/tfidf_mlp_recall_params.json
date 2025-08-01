@@ -1,16 +1,15 @@
 {
-  "augment_factor": 1,
+  "augment_factor": 0,
   "min_df": 1,
-  "learning_rate": 0.022408977520460283,
-  "max_features": 5000,
-  "hidden_size_1": 192,
+  "learning_rate": 0.01009312817652653,
+  "max_features": 3000,
+  "hidden_size_1": 208,
   "n_layers": 1,
-  "smote": true,
-  "smote_k_neighbors": 2,
-  "dropout": 0.25891592217977877,
-  "epochs": 80,
-  "threshold": 0.12213316400965767,
+  "smote": false,
+  "dropout": 0.25349231522637694,
+  "epochs": 40,
+  "threshold": 0.1474047296307867,
   "use_focal_loss": true,
-  "focal_alpha": 0.16471311442106878,
-  "focal_gamma": 2.7273122458849555
+  "focal_alpha": 0.40281580503005526,
+  "focal_gamma": 1.0897969283968598
 }

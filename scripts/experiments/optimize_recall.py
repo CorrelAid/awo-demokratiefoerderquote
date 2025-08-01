@@ -22,7 +22,7 @@ with Progress() as progress:
         text_col,
         progress=progress,
         mode="recall_precision",
-        n_trials=100,
+        n_trials=300,
     )
 
 

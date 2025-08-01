@@ -2,7 +2,13 @@ import polars as pl
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
-from lib.experiment_config import n_splits, random_state, test_size
+from lib.experiment_config import (
+    n_splits,
+    random_state,
+    test_size,
+    augment_model,
+    augment_base_url,
+)
 from lib.MLP import BinaryTfidfMLPClassifier as TfidfMLPClassifier
 import optuna
 from optuna.samplers import TPESampler
@@ -12,6 +18,14 @@ import os
 from datasets import Dataset
 
 from lib.cache import make_folds_dataframe
+from lib.data_augmentation import extend_pipeline
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+
+AUGMENT_API_KEY = os.getenv("OR_KEY")
 
 
 def objective(trial, df, label_col, text_col, mode):
@@ -78,7 +92,7 @@ def objective(trial, df, label_col, text_col, mode):
     dropout = trial.suggest_float("dropout", 0.2, 0.5)
     epochs = trial.suggest_int("epochs", 40, 100, step=10)
     if mode == "recall_precision":
-        threshold = trial.suggest_float("threshold", 0.1, 0.6)
+        threshold = trial.suggest_float("threshold", 0.1, 0.45)
     else:
         threshold = trial.suggest_float("threshold", 0.4, 0.6)
 
@@ -182,7 +196,7 @@ def objective(trial, df, label_col, text_col, mode):
         raise ValueError(f"Invalid mode: {mode}")
 
 
-def tfidf_mlp_optuna(df, label_col, text_col, progress, mode="f1", n_trials=100):
+def tfidf_mlp_optuna(df, label_col, text_col, progress, mode="f1", n_trials=10):
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     study = optuna.create_study(
@@ -223,6 +237,17 @@ def tfidf_mlp_optuna(df, label_col, text_col, progress, mode="f1", n_trials=100)
     ngram_max = 1
     n_layers = best_params.get("n_layers", 1)
 
+    if best_params.get("augment_factor", 0) > 0:
+        texts, true_labels = extend_pipeline(
+            texts,
+            true_labels,
+            best_params["augment_factor"],
+            augment_model,
+            augment_base_url,
+            AUGMENT_API_KEY,
+            text_col=text_col,
+        )
+
     final_classifier = TfidfMLPClassifier(
         min_df=best_params.get("min_df", 1),
         max_features=best_params.get("max_features", 5000),
@@ -239,6 +264,8 @@ def tfidf_mlp_optuna(df, label_col, text_col, progress, mode="f1", n_trials=100)
         use_focal_loss=best_params.get("use_focal_loss", True),
         focal_alpha=best_params.get("focal_alpha", 0.25),
         focal_gamma=best_params.get("focal_gamma", 2.0),
+        smote=best_params.get("smote", False),
+        smote_k_neighbors=best_params.get("smote_k_neighbors", 2),
         verbose=False,
     )
 
