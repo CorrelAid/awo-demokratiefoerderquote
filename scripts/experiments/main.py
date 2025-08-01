@@ -8,7 +8,6 @@ from rich.progress import Progress
 from rich.console import Console
 import json
 import os
-from collections import Counter
 from datetime import datetime
 
 schema = {
@@ -22,6 +21,7 @@ schema = {
     "date": pl.Utf8,
 }
 
+print("Make sure to run docker compose up -d before running this script")
 
 label_col = "label_original"
 
@@ -117,15 +117,15 @@ console.log(f"global config: {n_splits=}, {random_state=}, {test_size=}\n")
 
 for exp in [
     # ("rule_based", rb_baseline),
-    ("optuna_tf_idf_mlp", tfidf_mlp_optuna),
     # ("icl_zero_shot", icl_zero_shot),
     # ("icl_mipro", icl_mipro),
+    ("optuna_tf_idf_mlp", tfidf_mlp_optuna),
 ]:
     temp = conduct_experiments(
         exp[0],
         exp[1],
         console,
-        text_columns=["description_text_only", "description_title_cats_compact"],
+        text_columns=["description_title_cats_compact"],
     )
     results_df = results_df.extend(temp)
 

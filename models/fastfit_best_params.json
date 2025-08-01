@@ -1,1 +1,0 @@
-{"num_train_epochs": 43, "batch_size": 32, "clf_loss_factor": 0.060199065291158975, "num_repeats": 1, "symetric_mode": true, "inference_direction": "both"}

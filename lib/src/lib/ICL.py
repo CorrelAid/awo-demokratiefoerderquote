@@ -4,7 +4,12 @@ from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from dspy.primitives import Example
-from lib.experiment_config import code_book_path, gen_llm_url, random_state
+from lib.experiment_config import (
+    code_book_path,
+    gen_llm_url,
+    random_state,
+    augment_model,
+)
 import sys
 from contextlib import contextmanager
 import tqdm
@@ -40,17 +45,16 @@ min_df = 1
 max_features = 1000
 
 
-inst = f"""You are a binary classifier that has received the following codebook to classify german funding programs:
+inst = f"""You are a binary classifier that has received the following codebook to classify german funding programs based on whether they are funding democracy. 
+Once one or more of the following categories are present in the funding program, it is classified as democracy funding:
 
-<codebook>
 {codebook_text}
-</codebook>
 
 You will receive a funding program text and you have to classify it as either 0 (No Democracy Funding) or 1 (Democracy Funding).
 """
 
 
-models = ["meta-llama/llama-4-maverick"]
+models = [augment_model]
 
 
 def icl(df, label_col, text_col, progress, t):
@@ -113,7 +117,7 @@ def icl(df, label_col, text_col, progress, t):
 
         def process_single_item(x):
             result = compiled(funding_program_text=x)
-            return result.label
+            return int(result.label)
 
         print("Testing...")
         with ThreadPoolExecutor(max_workers=30) as executor:

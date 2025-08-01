@@ -1,4 +1,2 @@
 f1,precision,recall,accuracy,model_name,experiment,label_col,text_col,date
-0.71875,0.7076923076923077,0.7301587301587301,0.8333333333333334,google/gemini-2.5-flash-lite,icl_icl_mipro,label_original,description_title_cats_compact,02_28_07_2025
-0.6666666666666666,0.625,0.7142857142857143,0.7916666666666666,google/gemini-2.5-flash-lite,icl_icl_mipro,label_original,description_cats_md,02_28_07_2025
-0.6274509803921569,0.8205128205128205,0.5079365079365079,0.8240740740740741,google/gemini-2.5-flash-lite,icl_icl_mipro,label_original,description_md,02_28_07_2025
+0.7333333333333333,0.7719298245614035,0.6984126984126984,0.8518518518518519,moonshotai/kimi-k2,icl_icl_mipro,label_original,description_title_cats_compact,17_30_07_2025

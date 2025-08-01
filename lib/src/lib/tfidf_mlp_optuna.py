@@ -7,14 +7,17 @@ from lib.MLP import BinaryTfidfMLPClassifier as TfidfMLPClassifier
 import optuna
 from optuna.samplers import TPESampler
 from functools import partial
-from lib.data_augmentation import remote_back_translation_augmenter
-import asyncio
+from lib.data_augmentation import extend_pipeline
+import os
+from datasets import Dataset
+
+from lib.cache import make_folds_dataframe
 
 
 def objective(trial, df, label_col, text_col, mode):
     """Optuna objective function for hyperparameter optimization"""
 
-    augment_factor = trial.suggest_int("augment_factor", 1, 5)
+    augment_factor = trial.suggest_categorical("augment_factor", [0, 1])
 
     texts = df[text_col].to_list()
     true_labels = df[label_col].to_list()
@@ -23,23 +26,30 @@ def objective(trial, df, label_col, text_col, mode):
     labels_array = np.array(true_labels)
 
     min_df = trial.suggest_int("min_df", 1, 2)
-    learning_rate = trial.suggest_float("learning_rate", 0.01, 0.05)
-    max_features = trial.suggest_categorical("max_features", [5000, 10000])
+    learning_rate = trial.suggest_float("learning_rate", 0.01, 0.1)
+    max_features = trial.suggest_int("max_features", 3000, 10000, step=1000)
     use_stemming = True
     ngram_max = 1
     ngram_range = (1, ngram_max)
     hidden_size_1 = trial.suggest_int("hidden_size_1", 96, 208, step=16)
     n_layers = trial.suggest_int("n_layers", 1, 3)
 
+    # oversampling
+    smote = trial.suggest_categorical("smote", [True, False])
+
+    if smote:
+        smote_k_neighbors = trial.suggest_int("smote_k_neighbors", 2, 5)
+
+    else:
+        smote_k_neighbors = None
+
     if n_layers >= 2:
         min_size_2 = max(64, int(hidden_size_1 * 0.6))
         max_size_2 = hidden_size_1
 
-        # Ensure the range is divisible by step=8
-        min_size_2 = ((min_size_2 + 7) // 8) * 8  # Round up to nearest multiple of 8
-        max_size_2 = (max_size_2 // 8) * 8  # Round down to nearest multiple of 8
+        min_size_2 = ((min_size_2 + 7) // 8) * 8  #
+        max_size_2 = (max_size_2 // 8) * 8
 
-        # Ensure min <= max after rounding
         if min_size_2 > max_size_2:
             min_size_2 = max_size_2
 
@@ -53,11 +63,9 @@ def objective(trial, df, label_col, text_col, mode):
         min_size_3 = max(64, int(hidden_size_2 * 0.6))
         max_size_3 = hidden_size_2
 
-        # Ensure the range is divisible by step=8
-        min_size_3 = ((min_size_3 + 7) // 8) * 8  # Round up to nearest multiple of 8
-        max_size_3 = (max_size_3 // 8) * 8  # Round down to nearest multiple of 8
+        min_size_3 = ((min_size_3 + 7) // 8) * 8
+        max_size_3 = (max_size_3 // 8) * 8
 
-        # Ensure min <= max after rounding
         if min_size_3 > max_size_3:
             min_size_3 = max_size_3
 
@@ -69,12 +77,11 @@ def objective(trial, df, label_col, text_col, mode):
 
     dropout = trial.suggest_float("dropout", 0.2, 0.5)
     epochs = trial.suggest_int("epochs", 40, 100, step=10)
-    if mode == "recall":
+    if mode == "recall_precision":
         threshold = trial.suggest_float("threshold", 0.1, 0.6)
     else:
         threshold = trial.suggest_float("threshold", 0.4, 0.6)
 
-    # Focal loss parameters
     use_focal_loss = trial.suggest_categorical("use_focal_loss", [True, False])
     focal_alpha = (
         trial.suggest_float("focal_alpha", 0.1, 0.5) if use_focal_loss else 0.25
@@ -83,84 +90,76 @@ def objective(trial, df, label_col, text_col, mode):
         trial.suggest_float("focal_gamma", 1.0, 3.0) if use_focal_loss else 2.0
     )
 
-    # Use StratifiedShuffleSplit for HPO (same as final evaluation)
-    sss = StratifiedShuffleSplit(
-        n_splits=n_splits, test_size=test_size, random_state=random_state
-    )
-
-    # Store all metrics for each fold
     fold_metrics = {"f1": [], "accuracy": [], "precision": [], "recall": []}
 
+    folds = make_folds_dataframe(
+        texts_array,
+        labels_array,
+        label_col=label_col,
+        text_col=text_col,
+        augment_factor=augment_factor,
+    )
+
     try:
-        for fold, (train_idx, test_idx) in enumerate(
-            sss.split(texts_array, labels_array)
-        ):
-            X_train, X_test = texts_array[train_idx], texts_array[test_idx]
+        for f in folds:
+            fold_number = f["fold"]
+            X_train, y_train = f["X_train"], f["y_train"]
+            X_test, y_test = f["X_test"], f["y_test"]
 
-            y_train, y_test = labels_array[train_idx], labels_array[test_idx]
-
-            if augment_factor > 1:
-                loop = asyncio.get_event_loop()
-                texts = X_train.tolist()
-                labels = y_train.tolist()
-
-                X_train, y_train = loop.run_until_complete(
-                    remote_back_translation_augmenter(texts, labels, augment_factor)
+            try:
+                classifier = TfidfMLPClassifier(
+                    min_df=min_df,
+                    max_features=max_features,
+                    use_stemming=use_stemming,
+                    ngram_range=ngram_range,
+                    hidden_size_1=hidden_size_1,
+                    hidden_size_2=hidden_size_2,
+                    hidden_size_3=hidden_size_3,
+                    learning_rate=learning_rate,
+                    dropout=dropout,
+                    epochs=epochs,
+                    optimizer="adamw",
+                    threshold=threshold,
+                    use_focal_loss=use_focal_loss,
+                    focal_alpha=focal_alpha,
+                    focal_gamma=focal_gamma,
+                    verbose=False,
+                    smote=smote,
+                    smote_k_neighbors=smote_k_neighbors,
                 )
-                X_train, X_test = np.array(X_train), np.array(y_train)
 
-            classifier = TfidfMLPClassifier(
-                min_df=min_df,
-                max_features=max_features,
-                use_stemming=use_stemming,
-                ngram_range=ngram_range,
-                hidden_size_1=hidden_size_1,
-                hidden_size_2=hidden_size_2,
-                hidden_size_3=hidden_size_3,
-                learning_rate=learning_rate,
-                dropout=dropout,
-                epochs=epochs,
-                optimizer="adamw",
-                threshold=threshold,
-                use_focal_loss=use_focal_loss,
-                focal_alpha=focal_alpha,
-                focal_gamma=focal_gamma,
-                verbose=False,
-            )
+                classifier.fit(X_train.tolist(), y_train.tolist())
+            except Exception as e:
+                print(f"Error during training: {e}")
+                return 0.0
+            try:
+                test_predictions = classifier.predict(X_test.tolist())
+            except Exception as e:
+                print(f"Error during prediction: {e}")
+                return 0.0
 
-            classifier.fit(X_train.tolist(), y_train.tolist())
-            test_predictions = classifier.predict(X_test.tolist())
-
-            # Calculate all metrics
             fold_f1 = f1_score(y_test, test_predictions, zero_division=0)
             fold_accuracy = accuracy_score(y_test, test_predictions)
             fold_precision = precision_score(y_test, test_predictions, zero_division=0)
             fold_recall = recall_score(y_test, test_predictions, zero_division=0)
 
-            # Store metrics
             fold_metrics["f1"].append(fold_f1)
             fold_metrics["accuracy"].append(fold_accuracy)
             fold_metrics["precision"].append(fold_precision)
             fold_metrics["recall"].append(fold_recall)
 
-            # Report intermediate value for pruning (still use F1 as main metric)
-            trial.report(fold_f1, fold)
-
-            # Handle pruning based on the intermediate value
-            if trial.should_prune():
-                raise optuna.exceptions.TrialPruned()
+            trial.report(fold_f1, fold_number)
 
     except Exception as e:
         print(f"Error during trial: {e}")
         return 0.0
 
-    # Calculate mean metrics
     mean_f1 = np.mean(fold_metrics["f1"])
     mean_accuracy = np.mean(fold_metrics["accuracy"])
     mean_precision = np.mean(fold_metrics["precision"])
     mean_recall = np.mean(fold_metrics["recall"])
 
-    # Store additional metrics as user attributes for later access
+    trial.set_user_attr("mean_f1", mean_f1)
     trial.set_user_attr("mean_accuracy", mean_accuracy)
     trial.set_user_attr("mean_precision", mean_precision)
     trial.set_user_attr("mean_recall", mean_recall)
@@ -169,27 +168,28 @@ def objective(trial, df, label_col, text_col, mode):
     trial.set_user_attr("std_precision", np.std(fold_metrics["precision"]))
     trial.set_user_attr("std_recall", np.std(fold_metrics["recall"]))
 
-    recall_weight = 0.8
-    precision_weight = 0.2
+    recall_weight = 0.3
+    precision_weight = 0.7
 
     if mode == "f1":
         return mean_f1
     elif mode == "recall_precision":
-        return recall_weight * mean_recall + precision_weight * mean_precision
+        penalty = max(0, 0.95 - mean_recall)
+        return (
+            recall_weight * mean_recall + precision_weight * mean_precision
+        ) - penalty * 2
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
 
 def tfidf_mlp_optuna(df, label_col, text_col, progress, mode="f1", n_trials=100):
-    """Run Optuna hyperparameter optimization with rich progress bar"""
-
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     study = optuna.create_study(
         direction="maximize",
         sampler=TPESampler(seed=random_state),
         pruner=optuna.pruners.MedianPruner(
-            n_startup_trials=2,
+            n_startup_trials=3,
             n_warmup_steps=1,
             interval_steps=1,
         ),
@@ -264,15 +264,3 @@ def tfidf_mlp_optuna(df, label_col, text_col, progress, mode="f1", n_trials=100)
     }
 
     return results
-
-
-##############
-# Class weights
-# Pass a higher positive‐class weight to your focal loss or to a standard cross‐entropy loss:
-# Python
-
-# classifier = TfidfMLPClassifier(
-#     …,
-#     class_weights={0:1.0, 1: w_pos},
-#     …
-# )

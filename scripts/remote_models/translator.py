@@ -53,7 +53,10 @@ class Model:
     @modal.enter()
     def load_model(self):
         try:
-            quant_pipes = {p: load_and_quantize(p, device="cuda") for p in ALL_PIVOTS}
+            quant_pipes = {
+                p: load_and_quantize(p, device="cuda", cache_dir=CACHE_PATH)
+                for p in ALL_PIVOTS
+            }
             self.quant_pipes = quant_pipes
             print("Quantized pipelines loaded successfully")
         except Exception as e:
@@ -94,6 +97,7 @@ class Model:
                     labels,
                     factor=factor,
                     batch_size=batch_size,
+                    device="cuda",
                 )
             )
 

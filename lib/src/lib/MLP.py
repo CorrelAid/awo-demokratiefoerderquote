@@ -10,6 +10,10 @@ import nltk
 from nltk.stem.snowball import GermanStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
 import json
+from imblearn.pipeline import Pipeline
+from imblearn.over_sampling import SMOTE, RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
+
 
 try:
     nltk.data.find("tokenizers/punkt")
@@ -279,6 +283,8 @@ class BinaryTfidfMLPClassifier(BaseEstimator, ClassifierMixin):
         focal_alpha=0.25,
         focal_gamma=2.0,
         verbose=False,
+        smote=False,
+        smote_k_neighbors=5,
     ):
         self.min_df = min_df
         self.max_features = max_features
@@ -296,6 +302,8 @@ class BinaryTfidfMLPClassifier(BaseEstimator, ClassifierMixin):
         self.focal_alpha = focal_alpha
         self.focal_gamma = focal_gamma
         self.verbose = verbose
+        self.smote = smote
+        self.smote_k_neighbors = smote_k_neighbors
 
         self._initialize_components()
 
@@ -312,6 +320,11 @@ class BinaryTfidfMLPClassifier(BaseEstimator, ClassifierMixin):
             token_pattern=r"\b\w+\b",
             lowercase=True,
         )
+        if self.smote:
+            over = SMOTE(k_neighbors=self.smote_k_neighbors)
+            under = RandomUnderSampler()
+            steps = [("over", over), ("under", under)]
+            self.smote_pipeline = Pipeline(steps=steps)
 
         criterion = "focal_loss" if self.use_focal_loss else "bce_loss"
 
@@ -427,6 +440,9 @@ class BinaryTfidfMLPClassifier(BaseEstimator, ClassifierMixin):
 
         X_tfidf = self.vectorizer.fit_transform(processed_texts)
         X_dense = X_tfidf.toarray()
+
+        if self.smote:
+            X_dense, y = self.smote_pipeline.fit_resample(X_dense, y)
 
         if self.verbose:
             print(f"TF-IDF feature matrix shape: {X_dense.shape}")

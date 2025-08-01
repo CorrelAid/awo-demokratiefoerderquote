@@ -1,1 +1,2 @@
-{"best_params": {"num_train_epochs": 43, "batch_size": 32, "clf_loss_factor": 0.060199065291158975, "num_repeats": 1, "symetric_mode": true, "inference_direction": "both"}, "f1": 0.2893847194050034, "accuracy": 0.5860215053763441, "precision": 0.42333333333333334, "recall": 0.5, "f1_std": 0.3117198251072542, "accuracy_std": 0.17487587061602794, "precision_std": 0.10842303978193728, "recall_std": 0.6547285010986551, "trial_number": 0, "total_trials": 2}
+{'f1': 0.7251504119442016, 'accuracy': 0.8440860215053764, 'precision': 0.7513987076873325, 'recall': 0.711111111111111, 'f1_std': 0.07715313918787985, 'accuracy_std': 0.04512429502514041, 'precision_std': 0.09678222845808518, 'recall_std': 0.10299582031908251
+}

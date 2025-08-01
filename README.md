@@ -35,6 +35,20 @@ The Codebook (see `codebook`) specifies what is understood as a democracy fundin
 The last codebook development and coding iteration was based on results of applying methods from the [cleanlab](https://github.com/cleanlab/cleanlab) libary. The AWO experts were asked to correct potential label issues and use unclear cases to refine the instructions in the codebook. With this final version of the codebook, AWO tasked two coders to label all already labeled data. This allows to determine inter-coder reliability and human labeling performance (see `notebooks/compute_icr.pdf` for details). 
 ed on (McHugh (2012))[https://pmc.ncbi.nlm.nih.gov/articles/PMC3900052/] we use Percent Agreement as the main metric for inter-coder reliability, which was 89.3% and reflects strong reliability. 
 
+
+We evaluated the following methods:
+- Rule Based  (Meaning e.g. a program is classified if it contains the word "democracy" )
+- tf–idf as input to a Multilayer Perceptron (MLP)
+- In Context Learning (ICL) 
+- Fastfit
+- Finetuning a further pretrained BERT
+
+Methods were mostly evaluateed with a fixed 10 split shuffle split. The rule based methods was evaluated on all data, ICL on 80% of the data, as only 20% is needed for the MIPRO algorithm (as recommended by [dspy](https://dspy.ai/learn/optimization/overview/)). Hyperparameter optimization was only done for the tfidf MLP model, as it would have cost too much resources to optimize the LLM-based methods. If models were evaluated with the  shuffle split, the mean of the metrics is reported.  
+
+ For ICL, mipro did worsen performace compared to zero shot ICL with medium study size. Fastfit and finetuning of a model that was pretrained further did perform worse than other methods. Out of all methods, the best performance was achieved by the TFIDF MLP model. has good recall, but low precision with a F1 score of X.)
+
+This model can also be optimized for recall, which is the best option we have because all methods performance is not sufficient. Recall is more important than precision because we want to avoid missing any positives as this would distort the results of the study. It is feasible to manually check the positives that are predicted by the model, but not feasible to manually check the negatives.
+
 ## Setup
 
 ### Requirements

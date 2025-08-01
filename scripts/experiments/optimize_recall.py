@@ -17,7 +17,12 @@ date = datetime.now().strftime("%H_%d_%m_%Y")
 with Progress() as progress:
     df = pl.read_parquet("data/labeled/25_07/to_classify.parquet")
     res = tfidf_mlp_optuna(
-        df, label_col, text_col, progress=progress, mode="recall_precision", n_trials=50
+        df,
+        label_col,
+        text_col,
+        progress=progress,
+        mode="recall_precision",
+        n_trials=100,
     )
 
 
